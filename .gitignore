@@ -17,3 +17,6 @@ local/
 
 .vscode/
 docs/
+
+# Local onboarding docs (spec.md + docs/ are intentionally untracked)
+spec.md
