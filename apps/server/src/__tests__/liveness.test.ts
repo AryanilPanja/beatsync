@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, type Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock, type Mock } from "bun:test";
 import sinon from "sinon";
 import { mockR2 } from "@/__tests__/mocks/r2";
 import { createMockServer, createMockWs } from "@/__tests__/mocks/websocket";
@@ -7,6 +7,28 @@ import { RoomManager } from "@/managers/RoomManager";
 import { handleMessage } from "@/routes/websocketHandlers";
 
 mockR2();
+
+// Other suites replace @/utils/responses with no-op senders, and Bun module mocks
+// are process-wide. Pin real pass-through senders here so PINGs reach ws.send
+// regardless of test-file order.
+void mock.module("@/utils/responses", () => ({
+  sendUnicast: ({ ws, message }: { ws: { send: (data: string) => void }; message: unknown }) =>
+    ws.send(JSON.stringify(message)),
+  sendToClient: ({ ws, message }: { ws: { send: (data: string) => void }; message: unknown }) =>
+    ws.send(JSON.stringify(message)),
+  sendBroadcast: ({
+    server,
+    roomId,
+    message,
+  }: {
+    server: { publish: (topic: string, data: string) => void };
+    roomId: string;
+    message: unknown;
+  }) => server.publish(roomId, JSON.stringify(message)),
+  corsHeaders: {},
+  jsonResponse: () => new Response(),
+  errorResponse: () => new Response(),
+}));
 
 // Liveness policy under test:
 // - silent > PING_AFTER_MS -> server sends a PING (clients answer from onmessage,
