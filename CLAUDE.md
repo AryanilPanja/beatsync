@@ -43,7 +43,7 @@ The server uses a manager pattern with in-memory state (no database):
 - **`RoomManager`** (per-room): Owns clients, audio sources, playback state, spatial audio config, chat. Handles audio loading coordination and synchronized play scheduling.
 - **`ChatManager`** (per-room, owned by RoomManager): Message history with incremental IDs.
 - **`BackupManager`** (singleton): Periodic state backup/restore to R2 (every 60s). Restores on startup.
-- **`MusicProviderManager`**: External music search and streaming integration.
+- **`providers/`**: Swappable music provider adapters (`saavn` default, `hifi`, `library`, `legacy`) behind `MusicProvider`; picked by `MUSIC_PROVIDER` in `apps/server/src/providers/index.ts`.
 
 ### WebSocket Protocol
 

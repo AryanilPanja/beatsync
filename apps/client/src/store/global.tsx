@@ -1548,22 +1548,13 @@ export const useGlobalStore = create<GlobalState>((set, get) => {
         const state = get();
         if (state.searchResults?.type === "success") {
           // Append new results to existing ones
-          const existingItems = state.searchResults.response.data.tracks.items;
-          const newItems = results.response.data.tracks.items;
-          const combinedResults = {
-            ...results,
-            response: {
-              ...results.response,
-              data: {
-                ...results.response.data,
-                tracks: {
-                  ...results.response.data.tracks,
-                  items: [...existingItems, ...newItems],
-                },
-              },
+          const existingItems = state.searchResults.response.items;
+          set({
+            searchResults: {
+              ...results,
+              response: { ...results.response, items: [...existingItems, ...results.response.items] },
             },
-          };
-          set({ searchResults: combinedResults });
+          });
           return;
         }
       }
@@ -1593,8 +1584,7 @@ export const useGlobalStore = create<GlobalState>((set, get) => {
       }
 
       // Calculate next offset based on current results
-      const currentResults =
-        state.searchResults?.type === "success" ? state.searchResults.response.data.tracks.items.length : 0;
+      const currentResults = state.searchResults?.type === "success" ? state.searchResults.response.items.length : 0;
       const nextOffset = searchOffset + currentResults;
 
       console.log("Loading more search results", { searchQuery, nextOffset });

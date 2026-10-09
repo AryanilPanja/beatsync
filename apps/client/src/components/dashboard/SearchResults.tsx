@@ -5,11 +5,21 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
 import { useGlobalStore } from "@/store/global";
 import { sendWSRequest } from "@/utils/ws";
-import { ClientActionEnum, TrackType } from "@beatsync/shared";
+import { getApiUrl } from "@/lib/urls";
+import { ClientActionEnum, ProviderTrackType } from "@beatsync/shared";
 import { Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 import { toast } from "sonner";
+
+const FALLBACK_ART =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23404040'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23888' font-size='14'%3E♪%3C/text%3E%3C/svg%3E";
+
+// Provider artwork may be relative to the API server (e.g. /library/artwork/<id>)
+const resolveImageUrl = (url?: string) => {
+  if (!url) return FALLBACK_ART;
+  return url.startsWith("/") ? `${getApiUrl()}${url}` : url;
+};
 
 interface SearchResultsProps {
   className?: string;
@@ -22,43 +32,21 @@ export function SearchResults({ className, onTrackSelect }: SearchResultsProps) 
   const isSearching = useGlobalStore((state) => state.isSearching);
 
   // Track which tracks are currently being streamed to prevent duplicates
-  const streamingTracksRef = useRef<Set<number>>(new Set());
+  const streamingTracksRef = useRef<Set<string>>(new Set());
   const isLoadingMoreResults = useGlobalStore((state) => state.isLoadingMoreResults);
   const hasMoreResults = useGlobalStore((state) => state.hasMoreResults);
   const searchQuery = useGlobalStore((state) => state.searchQuery);
   const socket = useGlobalStore((state) => state.socket);
   const loadMoreSearchResults = useGlobalStore((state) => state.loadMoreSearchResults);
 
-  // Helper function to format track name as "Artist 1, Artist 2 - Title (Version)"
-  const formatTrackName = (track: TrackType) => {
-    const artists: string[] = [];
-
-    // Add main performer
-    if (track.performer?.name) {
-      artists.push(track.performer.name);
-    }
-
-    // Add album artists if different from performer
-    if (track.album?.artists) {
-      track.album.artists.forEach((artist) => {
-        if (artist.name && !artists.includes(artist.name)) {
-          artists.push(artist.name);
-        }
-      });
-    }
-
-    const artistStr = artists.length > 0 ? artists.join(", ") : "Unknown Artist";
-
-    // Trim whitespace from title and include version if present
-    const title = (track.title || "Unknown Title").trim();
+  // Format track name as "Artist 1, Artist 2 - Title (Version)" (used by providers that store files by name)
+  const formatTrackName = (track: ProviderTrackType) => {
+    const title = track.title.trim() || "Unknown Title";
     const version = track.version?.trim();
-
-    const fullTitle = version ? `${title} (${version})` : title;
-
-    return `${artistStr} - ${fullTitle}`;
+    return `${track.artist || "Unknown Artist"} - ${version ? `${title} (${version})` : title}`;
   };
 
-  const handleAddTrack = async (track: TrackType) => {
+  const handleAddTrack = async (track: ProviderTrackType) => {
     if (!socket) {
       toast.error("Not connected to server");
       return;
@@ -206,7 +194,7 @@ export function SearchResults({ className, onTrackSelect }: SearchResultsProps) 
     );
   }
 
-  if (!searchResults || (searchResults.type === "success" && !searchResults.response.data.tracks.items.length)) {
+  if (!searchResults || (searchResults.type === "success" && !searchResults.response.items.length)) {
     if (searchQuery) {
       return (
         <motion.div
@@ -296,7 +284,7 @@ export function SearchResults({ className, onTrackSelect }: SearchResultsProps) 
     );
   }
 
-  const tracks = searchResults.type === "success" ? searchResults.response.data.tracks.items : [];
+  const tracks = searchResults.type === "success" ? searchResults.response.items : [];
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={cn(isMobile && "max-h-[40vh]", className)}>
@@ -329,14 +317,11 @@ export function SearchResults({ className, onTrackSelect }: SearchResultsProps) 
               <div className="relative flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element -- external album art URLs with onError fallback, not compatible with next/image */}
                 <img
-                  src={track.album.image.thumbnail || track.album.image.small}
-                  alt={track.album.title}
-                  // width={40}
-                  // height={40}
+                  src={resolveImageUrl(track.imageUrl)}
+                  alt={track.album ?? track.title}
                   className="w-10 h-10 rounded object-cover bg-neutral-800"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23404040'/%3E%3Ctext x='50' y='50' text-anchor='middle' dy='.3em' fill='%23888' font-size='14'%3E♪%3C/text%3E%3C/svg%3E";
+                    (e.target as HTMLImageElement).src = FALLBACK_ART;
                   }}
                 />
               </div>
@@ -347,7 +332,10 @@ export function SearchResults({ className, onTrackSelect }: SearchResultsProps) 
                   {track.title}
                   {track.version && <span className="text-neutral-500 ml-1">({track.version})</span>}
                 </h4>
-                <p className="text-xs text-neutral-400 truncate">{track.performer.name}</p>
+                <p className="text-xs text-neutral-400 truncate">
+                  {track.artist}
+                  {track.album && <span className="text-neutral-500"> · {track.album}</span>}
+                </p>
               </div>
 
               {/* Duration */}

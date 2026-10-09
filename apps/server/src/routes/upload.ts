@@ -76,7 +76,7 @@ export const handleUploadComplete = async (req: Request, server: BunServer) => {
       return errorResponse(`Invalid request data: ${parseResult.error.message}`, 400);
     }
 
-    const { roomId, publicUrl } = parseResult.data;
+    const { roomId, publicUrl, metadata } = parseResult.data;
 
     // Check if room exists
     const room = globalManager.getRoom(roomId);
@@ -84,7 +84,7 @@ export const handleUploadComplete = async (req: Request, server: BunServer) => {
       return errorResponse("Room not found. The room may have been closed during upload.", 404);
     }
 
-    const sources = room.addAudioSource({ url: publicUrl });
+    const sources = room.addAudioSource({ ...metadata, url: publicUrl });
 
     console.log(`✅ Audio upload completed - broadcasting to room ${roomId} new sources: ${JSON.stringify(sources)}`);
 

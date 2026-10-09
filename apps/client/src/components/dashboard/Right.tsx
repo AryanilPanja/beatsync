@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageCircle, Rotate3D } from "lucide-react";
+import { MessageCircle, MicVocal, Rotate3D } from "lucide-react";
+import { LyricsView } from "../lyrics/LyricsView";
 import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
 import { Chat } from "./right/Chat";
@@ -18,6 +19,10 @@ export const Right = () => {
             <TabsTrigger value="spatial" className="flex-1">
               <Rotate3D className="h-3.5 w-3.5 mr-1.5" />
               Spatial
+            </TabsTrigger>
+            <TabsTrigger value="lyrics" className="flex-1">
+              <MicVocal className="h-3.5 w-3.5 mr-1.5" />
+              Lyrics
             </TabsTrigger>
           </TabsList>
         </div>
@@ -39,6 +44,9 @@ export const Right = () => {
           <ScrollArea className="h-full">
             <SpatialAudio />
           </ScrollArea>
+        </TabsContent>
+        <TabsContent value="lyrics" className="flex-1 overflow-hidden h-full min-h-0">
+          <LyricsView variant="panel" />
         </TabsContent>
       </Tabs>
     </div>

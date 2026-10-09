@@ -77,9 +77,30 @@ export const RawSearchResponseSchema = z.object({
   }),
 });
 
+// Provider-neutral search result: every music provider adapter maps its own API to this shape,
+// so the search UI and protocol never change when the provider is swapped.
+export const ProviderTrackSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artist: z.string(),
+  album: z.string().optional(),
+  duration: z.number(), // seconds
+  imageUrl: z.string().optional(), // absolute, or relative to the API base URL
+  version: z.string().optional(),
+});
+export type ProviderTrackType = z.infer<typeof ProviderTrackSchema>;
+
+export const ProviderSearchResultSchema = z.object({
+  items: z.array(ProviderTrackSchema),
+  total: z.number(),
+  offset: z.number(),
+  limit: z.number(),
+});
+export type ProviderSearchResultType = z.infer<typeof ProviderSearchResultSchema>;
+
 const SearchSuccessResponseSchema = z.object({
   type: z.literal("success"),
-  response: RawSearchResponseSchema,
+  response: ProviderSearchResultSchema,
 });
 
 const SearchErrorResponseSchema = z.object({

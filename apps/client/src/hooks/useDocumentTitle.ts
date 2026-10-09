@@ -1,4 +1,4 @@
-import { extractFileNameFromUrl } from "@/lib/utils";
+import { getTrackDisplay } from "@/lib/utils";
 import { useGlobalStore } from "@/store/global";
 import { useEffect } from "react";
 
@@ -10,8 +10,8 @@ export const useDocumentTitle = () => {
   useEffect(() => {
     const track = getSelectedTrack();
     if (isPlaying && track) {
-      const songName = extractFileNameFromUrl(track.source.url);
-      document.title = `${songName}`;
+      const { title, artist } = getTrackDisplay(track.source);
+      document.title = artist ? `${title} · ${artist}` : title;
     } else {
       document.title = "Beatsync";
     }

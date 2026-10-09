@@ -137,7 +137,7 @@ export const WS_RESPONSE_REGISTRY: WebsocketResponseRegistry = {
 
       // Update hasMoreResults based on response
       if (response.response.type === "success") {
-        const { total, items, offset } = response.response.response.data.tracks;
+        const { total, items, offset } = response.response.response;
         const hasMore = offset + items.length < total;
         setHasMoreResults(hasMore);
       } else {

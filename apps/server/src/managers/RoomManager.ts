@@ -1199,6 +1199,15 @@ export class RoomManager {
       return new Error(`Mismatched audio sources length`);
     }
 
-    this.audioSources = newOrder;
+    // Rebuild from the room's own entries (matched by URL) so song details are kept and a
+    // reorder can't swap in URLs that aren't already queued
+    const byUrl = new Map(this.audioSources.map((source) => [source.url, source]));
+    const reordered = newOrder.map((source) => byUrl.get(source.url));
+    if (reordered.some((source) => !source) || new Set(newOrder.map((source) => source.url)).size !== newOrder.length) {
+      console.warn(`Attempted to reorder audio sources with unknown or duplicate URLs in room ${this.roomId}`);
+      return new Error(`Reorder must contain exactly the queued audio sources`);
+    }
+
+    this.audioSources = reordered as AudioSourceType[];
   }
 }
