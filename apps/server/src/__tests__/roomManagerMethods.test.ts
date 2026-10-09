@@ -252,6 +252,32 @@ describe("reorderAudioSource", () => {
     expect(sources[2].url).toBe("https://example.com/b.mp3");
   });
 
+  it("keeps the room's own song details and rejects URLs that aren't queued", () => {
+    // Clients may send bare { url } objects; details must survive, and a reorder must not
+    // be able to swap in arbitrary URLs of the same count
+    const room = new RoomManager(ROOM_ID);
+    room.addAudioSource({ url: "https://example.com/a.mp3", title: "A", artist: "Artist A" });
+    room.addAudioSource({ url: "https://example.com/b.mp3", title: "B", artist: "Artist B" });
+
+    expect(room.reorderAudioSource([{ url: "https://example.com/b.mp3" }, { url: "https://example.com/a.mp3" }])).toBe(
+      undefined
+    );
+    expect(room.getAudioSources()).toEqual([
+      { url: "https://example.com/b.mp3", title: "B", artist: "Artist B" },
+      { url: "https://example.com/a.mp3", title: "A", artist: "Artist A" },
+    ]);
+
+    const foreign = room.reorderAudioSource([
+      { url: "https://evil.example/x.mp3" },
+      { url: "https://example.com/a.mp3" },
+    ]);
+    expect(foreign).toBeInstanceOf(Error);
+    expect(room.getAudioSources().map((s) => s.url)).toEqual([
+      "https://example.com/b.mp3",
+      "https://example.com/a.mp3",
+    ]);
+  });
+
   it("should return an error when lengths do not match", () => {
     const room = new RoomManager(ROOM_ID);
     room.addAudioSource({ url: "https://example.com/a.mp3" });

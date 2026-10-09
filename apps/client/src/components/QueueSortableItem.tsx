@@ -1,4 +1,4 @@
-import { cn, extractFileNameFromUrl, formatTime } from "@/lib/utils";
+import { cn, formatTime, getTrackDisplay } from "@/lib/utils";
 import { AudioSourceState, useGlobalStore } from "@/store/global";
 import { sendWSRequest } from "@/utils/ws";
 import { ClientActionEnum } from "@beatsync/shared";
@@ -40,6 +40,7 @@ export const QueueSortableItem = ({
   };
 
   const isSelected = selectedAudioUrl === sourceState.source.url;
+  const display = getTrackDisplay(sourceState.source);
   const isPlayingThis = isSelected && isPlaying;
   const isLoading = sourceState.status === "loading";
   const isError = sourceState.status === "error";
@@ -237,9 +238,10 @@ export const QueueSortableItem = ({
               isLoading && "opacity-60"
             )}
           >
-            {extractFileNameFromUrl(sourceState.source.url)}
+            {display.title}
             {isError && sourceState.error && <span className="text-xs text-red-400 ml-2">({sourceState.error})</span>}
           </div>
+          {display.artist && <div className="text-xs text-neutral-500 truncate select-none">{display.artist}</div>}
         </div>
 
         {/* Duration & Delete Button */}
@@ -270,7 +272,7 @@ export const QueueSortableItem = ({
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
-                --:--
+                {sourceState.source.duration ? formatTime(sourceState.source.duration) : "--:--"}
               </motion.span>
             )}
           </motion.div>

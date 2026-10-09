@@ -1,4 +1,4 @@
-import type { ClientDataType } from "@beatsync/shared";
+import type { AudioSourceType, ClientDataType } from "@beatsync/shared";
 import { R2_AUDIO_FILE_NAME_DELIMITER } from "@beatsync/shared";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -33,6 +33,19 @@ export function formatTime(seconds: number): string {
 export const trimFileName = (fileName: string) => {
   // Remove file extensions like .mp3, .wav, etc.
   return fileName.replace(/\.[^/.]+$/, "");
+};
+
+/**
+ * What to show for a queued track: its song details when known (provider / file tags),
+ * otherwise the name recovered from the file URL.
+ */
+export const getTrackDisplay = (source: AudioSourceType): { title: string; artist?: string } => {
+  if (source.title) return { title: source.title, artist: source.artist };
+  try {
+    return { title: extractFileNameFromUrl(source.url) };
+  } catch {
+    return { title: source.url };
+  }
 };
 
 export const extractFileNameFromUrl = (url: string) => {

@@ -25,6 +25,8 @@ const S3_CONFIG = {
 const r2Client = new S3Client({
   region: "auto",
   endpoint: S3_CONFIG.ENDPOINT,
+  // Self-hosted S3 servers (MinIO, RustFS, ...) usually need "host/bucket/key" URLs; R2 works either way
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
   credentials: {
     accessKeyId: S3_CONFIG.ACCESS_KEY_ID,
     secretAccessKey: S3_CONFIG.SECRET_ACCESS_KEY,

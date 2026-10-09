@@ -34,8 +34,13 @@ export class BackupManager {
     try {
       const room = globalManager.getOrCreateRoom(roomId);
 
-      // Concurrently validate all audio sources in R2 (no limit on concurrency)
-      const validationPromises = roomData.audioSources.map((source) => validateAudioFileExists(source.url));
+      // Concurrently validate stored audio sources in R2 (no limit on concurrency). Sources that
+      // don't live in our bucket (library tracks, external URLs) can't be HEAD-checked there — keep them.
+      const publicUrl = process.env.S3_PUBLIC_URL;
+      const isStoredInBucket = (url: string) => !!publicUrl && url.startsWith(`${publicUrl}/`);
+      const validationPromises = roomData.audioSources.map((source) =>
+        isStoredInBucket(source.url) ? validateAudioFileExists(source.url) : Promise.resolve(true)
+      );
       const validationResults = await Promise.all(validationPromises);
 
       // Filter out audio sources that are not valid

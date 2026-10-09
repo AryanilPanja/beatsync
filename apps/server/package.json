@@ -31,6 +31,7 @@
     "@beatsync/shared": "workspace:*",
     "dotenv": "17.4.2",
     "hono": "4.12.23",
+    "music-metadata": "12.1.0",
     "nanoid": "5.1.11",
     "p-limit": "7.3.0",
     "sanitize-filename": "1.6.4",

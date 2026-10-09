@@ -35,6 +35,8 @@ export const UploadCompleteSchema = z.object({
   roomId: z.string(),
   originalName: z.string(),
   publicUrl: z.string().url(),
+  // Song details read from the file's embedded tags (when present)
+  metadata: AudioSourceSchema.pick({ title: true, artist: true, album: true, duration: true, isrc: true }).optional(),
 });
 export type UploadCompleteType = z.infer<typeof UploadCompleteSchema>;
 
@@ -80,3 +82,40 @@ export type DiscoveryRoomType = z.infer<typeof DiscoveryRoomSchema>;
 
 export const DiscoverRoomsSchema = z.array(DiscoveryRoomSchema);
 export type DiscoverRoomsType = z.infer<typeof DiscoverRoomsSchema>;
+
+// Lyrics lookup (GET /lyrics). `track` is the display name derived from the audio URL.
+export const GetLyricsQuerySchema = z.object({
+  track: z.string().trim().min(1),
+  // Known song details (from tags or a music provider) take precedence over parsing `track`
+  artist: z.string().trim().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  duration: z.coerce.number().positive().max(3600).optional(), // seconds
+});
+export type GetLyricsQueryType = z.infer<typeof GetLyricsQuerySchema>;
+
+const LyricsMatchSchema = z.object({
+  trackName: z.string(),
+  artistName: z.string(),
+});
+
+export const LyricsResponseSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("synced"),
+    syncedLyrics: z.string(), // LRC format
+    plainLyrics: z.string().optional(),
+    match: LyricsMatchSchema,
+  }),
+  z.object({
+    status: z.literal("plain"),
+    plainLyrics: z.string(),
+    match: LyricsMatchSchema,
+  }),
+  z.object({
+    status: z.literal("instrumental"),
+    match: LyricsMatchSchema,
+  }),
+  z.object({
+    status: z.literal("not_found"),
+  }),
+]);
+export type LyricsResponseType = z.infer<typeof LyricsResponseSchema>;

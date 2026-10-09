@@ -2,12 +2,16 @@ import {
   DiscoverRoomsType,
   GetActiveRoomsType,
   GetDefaultAudioType,
+  GetLyricsQueryType,
   GetUploadUrlType,
+  LyricsResponseSchema,
+  LyricsResponseType,
   UploadCompleteResponseType,
   UploadCompleteType,
   UploadUrlResponseType,
 } from "@beatsync/shared";
 import axios from "axios";
+import { readAudioTags } from "./audioTags";
 import { getApiUrl } from "./urls";
 
 const baseAxios = axios.create({
@@ -17,6 +21,9 @@ const baseAxios = axios.create({
 });
 
 export const uploadAudioFile = async (data: { file: File; roomId: string }) => {
+  // Read embedded tags while the upload runs; sent with the completion step
+  const metadataPromise = readAudioTags(data.file);
+
   try {
     // Step 1: Get presigned upload URL from server
     const uploadUrlRequest: GetUploadUrlType = {
@@ -50,6 +57,7 @@ export const uploadAudioFile = async (data: { file: File; roomId: string }) => {
       roomId: data.roomId,
       originalName: data.file.name,
       publicUrl,
+      metadata: await metadataPromise,
     };
 
     await baseAxios.post<UploadCompleteResponseType>("/upload/complete", uploadCompleteRequest);
@@ -96,6 +104,11 @@ export async function fetchDefaultAudioSources() {
     console.error("Error fetching default audio sources:", error);
     return [];
   }
+}
+
+export async function fetchLyrics(params: GetLyricsQueryType): Promise<LyricsResponseType> {
+  const response = await baseAxios.get<unknown>("/lyrics", { params });
+  return LyricsResponseSchema.parse(response.data);
 }
 
 export async function fetchActiveRooms() {

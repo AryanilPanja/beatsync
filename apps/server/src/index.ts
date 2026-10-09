@@ -4,7 +4,10 @@ import { getActiveRooms } from "@/routes/active";
 import { handleGetDefaultAudio } from "@/routes/default";
 import { handleServeAudio } from "@/routes/demoAudio";
 import { handleDiscover } from "@/routes/discover";
+import { getMusicProvider } from "@/providers";
 import { handleHealth } from "@/routes/health";
+import { handleLibraryRequest, LIBRARY_ROUTE_PREFIX } from "@/routes/library";
+import { handleGetLyrics } from "@/routes/lyrics";
 import { handleRoot } from "@/routes/root";
 import { handleStats } from "@/routes/stats";
 import { handleGetPresignedURL, handleUploadComplete } from "@/routes/upload";
@@ -32,6 +35,8 @@ const server = Bun.serve<WSData>({
       // Demo mode: serve local audio files
       if (IS_DEMO_MODE && url.pathname.startsWith("/audio/")) {
         response = handleServeAudio(url.pathname);
+      } else if (url.pathname.startsWith(LIBRARY_ROUTE_PREFIX)) {
+        response = await handleLibraryRequest(req, url.pathname);
       } else {
         switch (url.pathname) {
           case "/":
@@ -63,6 +68,10 @@ const server = Bun.serve<WSData>({
 
           case "/default":
             response = await handleGetDefaultAudio(req);
+            break;
+
+          case "/lyrics":
+            response = await handleGetLyrics(req);
             break;
 
           case "/active-rooms":
@@ -119,6 +128,9 @@ if (IS_DEMO_MODE) {
 }
 
 if (!IS_DEMO_MODE) {
+  // Create the music provider now so a library index is built before the first search
+  getMusicProvider();
+
   // Restore state from backup on startup
   BackupManager.restoreState().catch((error) => {
     console.error("Failed to restore state on startup:", error);

@@ -1,8 +1,9 @@
 import { cn, formatTime } from "@/lib/utils";
 
 import { useCanMutate, useGlobalStore } from "@/store/global";
-import { Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { MicVocal, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LyricsFullscreen } from "../lyrics/LyricsFullscreen";
 import { Slider } from "../ui/slider";
 
 export const Player = () => {
@@ -16,6 +17,8 @@ export const Player = () => {
   const isShuffled = useGlobalStore((state) => state.isShuffled);
   const toggleShuffle = useGlobalStore((state) => state.toggleShuffle);
   const trackDuration = useGlobalStore((state) => state.duration);
+  const selectedAudioUrl = useGlobalStore((state) => state.selectedAudioUrl);
+  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
 
   // Local state for slider
   const [sliderPosition, setSliderPosition] = useState(0);
@@ -236,7 +239,17 @@ export const Player = () => {
               <div className="absolute w-1 h-1 bg-green-500 rounded-full bottom-0 top-4.5 left-1/2 transform -translate-x-1/2 translate-y-1/2"></div>
             </div>
           </button>
+          <button
+            className="text-gray-400 hover:text-white transition-colors cursor-pointer hover:scale-105 duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setIsLyricsOpen(true)}
+            disabled={!selectedAudioUrl}
+            aria-label="Show lyrics"
+            title="Lyrics"
+          >
+            <MicVocal className="w-4 h-4" />
+          </button>
         </div>
+        <LyricsFullscreen open={isLyricsOpen} onOpenChange={setIsLyricsOpen} />
         <div className="flex items-center gap-0">
           <span className="text-xs text-muted-foreground min-w-11 select-none">{formatTime(sliderPosition)}</span>
           <Slider
