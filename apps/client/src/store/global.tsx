@@ -4,7 +4,7 @@ import { getClientId } from "@/lib/clientId";
 import { getKickBuffer } from "@/components/dashboard/Metronome";
 import { IS_DEMO_MODE } from "@/lib/demo";
 import { getApiUrl } from "@/lib/urls";
-import { extractFileNameFromUrl } from "@/lib/utils";
+import { getTrackDisplay } from "@/lib/utils";
 import {
   calculateOffsetEstimate,
   calculateWaitTimeMilliseconds,
@@ -397,7 +397,7 @@ export const useCanMutate = () => {
   return isAdmin || isEveryoneMode;
 };
 
-export const useGlobalStore = create<GlobalState>((set, get) => {
+export const useGlobalStore = create<GlobalState>((set, get, api) => {
   // Helper function to manage LRU cache
   const addURLToLRU = (url: string) => {
     const state = get();
@@ -504,6 +504,9 @@ export const useGlobalStore = create<GlobalState>((set, get) => {
           source: { url },
         },
       });
+
+      // Only the selected track preloads its successor, so a preload doesn't chain through the queue
+      if (!IS_DEMO_MODE && get().selectedAudioUrl === url) preloadNextSource(url);
     } catch (error) {
       console.error(`Failed to load audio source ${url}:`, error);
       // Update the source with error status
@@ -513,6 +516,32 @@ export const useGlobalStore = create<GlobalState>((set, get) => {
         ),
       }));
     }
+  };
+
+  // Late join: PLAY arrived while this client was still downloading the track. Wait for the
+  // download to finish, then ask the server for the current position once (SYNC) — instead of
+  // polling every second, which kept re-pausing and re-toasting on slow phones.
+  let stopWaitingForLoad: (() => void) | null = null;
+  const syncWhenLoaded = (url: string) => {
+    stopWaitingForLoad?.();
+    const unsubscribe = api.subscribe((state) => {
+      const status = state.audioSources.find((as) => as.source.url === url)?.status;
+      if (status === "loading") return;
+      unsubscribe();
+      if (stopWaitingForLoad === unsubscribe) stopWaitingForLoad = null;
+      toast.dismiss("schedulePlay");
+      if (status !== "loaded" || state.selectedAudioUrl !== url || !state.socket) return;
+      sendWSRequest({ ws: state.socket, request: { type: ClientActionEnum.enum.SYNC } });
+    });
+    stopWaitingForLoad = unsubscribe;
+  };
+
+  // Preload the track after `url` in queue order so skips and autoplay don't wait on a download.
+  const preloadNextSource = (url: string) => {
+    const { audioSources } = get();
+    const index = audioSources.findIndex((as) => as.source.url === url);
+    const next = index >= 0 ? audioSources[index + 1] : undefined;
+    if (next?.status === "idle") void loadAudioSource(next.source.url);
   };
 
   // Eagerly load idle audio sources (skips loading/loaded/error).
@@ -865,15 +894,10 @@ export const useGlobalStore = create<GlobalState>((set, get) => {
         }
 
         console.warn(`Cannot play audio: Track still loading: ${data.audioSource}`);
-        toast.warning(`"${extractFileNameFromUrl(data.audioSource)}" not loaded yet...`, { id: "schedulePlay" });
-
-        const { socket } = getSocket(state);
-        setTimeout(() => {
-          sendWSRequest({
-            ws: socket,
-            request: { type: ClientActionEnum.enum.SYNC },
-          });
-        }, 1000);
+        toast.loading(`Loading "${getTrackDisplay(audioSourceState.source).title}" — joining when ready`, {
+          id: "schedulePlay",
+        });
+        syncWhenLoaded(data.audioSource);
 
         return;
       }

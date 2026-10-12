@@ -183,9 +183,11 @@ export class RoomManager {
       this.executeScheduledPlay(server);
     }, RoomManager.AUDIO_LOAD_TIMEOUT_MS);
 
-    // Store pending play state
+    // Store pending play state. The initiator reports in like everyone else: pressing play
+    // (or skipping to a just-added track) doesn't mean its buffer is downloaded yet, and a
+    // slow phone counted as ready gets PLAY while still loading.
     this.pendingPlay = {
-      clientsLoaded: new Set([initiatorClientId]),
+      clientsLoaded: new Set(),
       timeout,
       playAction,
       initiatorClientId,
