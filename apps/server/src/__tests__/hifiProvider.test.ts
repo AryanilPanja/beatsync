@@ -9,7 +9,6 @@ import { mockR2 } from "@/__tests__/mocks/r2";
 import { HifiProvider, tidalArtworkUrl } from "@/providers/hifi";
 
 mockR2({
-  generateAudioFileName: mock((originalName: string) => `${originalName}___ts`),
   uploadBytes: mock((bytes: Uint8Array, roomId: string, fileName: string, contentType: string) => {
     uploads.push({ bytes, roomId, fileName, contentType });
     return Promise.resolve(`https://cdn.example.com/room-${roomId}/${fileName}`);
@@ -204,7 +203,7 @@ describe("HifiProvider", () => {
       trackName: "50 Cent - In Da Club",
     });
 
-    expect(source.url).toBe("https://cdn.example.com/room-654321/50 Cent - In Da Club.flac___ts");
+    expect(source.url).toMatch(/^https:\/\/cdn\.example\.com\/room-654321\/50 Cent - In Da Club___.*\.flac$/);
     expect(source.title).toBe("In Da Club");
     expect(source.artist).toBe("50 Cent");
     expect(source.album).toBe("Get Rich or Die Tryin'");
@@ -251,6 +250,7 @@ describe("HifiProvider", () => {
     });
 
     expect(source.title).toBe("50 Cent - In Da Club");
-    expect(source.url).toContain("50 Cent - In Da Club.mp3");
+    expect(source.url).toContain("50 Cent - In Da Club___");
+    expect(source.url.endsWith(".mp3")).toBe(true);
   });
 });

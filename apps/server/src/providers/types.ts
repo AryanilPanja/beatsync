@@ -8,6 +8,12 @@ import type { AudioSourceType, ProviderSearchResultType } from "@beatsync/shared
 export interface MusicProvider {
   readonly name: string;
 
+  /**
+   * Optional id prefix that makes this provider's track ids self-describing
+   * (e.g. "mono:123"), so a composite/fallback setup knows who to ask.
+   */
+  readonly idPrefix?: string;
+
   /** Search the provider's catalog. `offset` pages through results. */
   search(query: string, offset: number): Promise<ProviderSearchResultType>;
 
