@@ -9,7 +9,6 @@ import { mockR2 } from "@/__tests__/mocks/r2";
 import { SaavnProvider, decryptMediaUrl, upgradeTo320 } from "@/providers/saavn";
 
 mockR2({
-  generateAudioFileName: mock((originalName: string) => `${originalName}___ts`),
   uploadBytes: mock((bytes: Uint8Array, roomId: string, fileName: string, contentType: string) => {
     uploads.push({ bytes, roomId, fileName, contentType });
     return Promise.resolve(`https://cdn.example.com/room-${roomId}/${fileName}`);
@@ -149,8 +148,8 @@ describe("SaavnProvider", () => {
       trackName: "Kinà - Can We Kiss Forever?",
     });
 
-    expect(source.url).toBe(
-      "https://cdn.example.com/room-654321/Kinà, Adriana Proenza - Can We Kiss Forever?_320.m4a___ts"
+    expect(source.url).toMatch(
+      /^https:\/\/cdn\.example\.com\/room-654321\/Kinà, Adriana Proenza - Can We Kiss Forever_320___.*\.m4a$/
     );
     expect(source.title).toBe("Can We Kiss Forever?");
     expect(source.artist).toBe("Kinà, Adriana Proenza");

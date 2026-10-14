@@ -1,12 +1,17 @@
 import { DEFAULT_HIFI_API_URLS, DEFAULT_HIFI_STREAMING_URLS, HifiProvider, parseUrlList } from "@/providers/hifi";
 import { LegacyProvider } from "@/providers/legacy";
 import { LibraryProvider } from "@/providers/library";
+import { MonochromeProvider, DEFAULT_MONOCHROME_API_URLS } from "@/providers/monochrome";
+import { InvidiousProvider, DEFAULT_INVIDIOUS_API_URLS } from "@/providers/invidious";
+import { AudiusProvider, DEFAULT_AUDIUS_API_URLS } from "@/providers/audius";
+import { CompositeProvider } from "@/providers/composite";
 import { SaavnProvider } from "@/providers/saavn";
 import type { MusicProvider } from "@/providers/types";
 import { homedir } from "os";
 import { resolve } from "path";
 
 let provider: MusicProvider | null | undefined;
+let primary: MusicProvider | null | undefined;
 
 const expandHome = (path: string) =>
   path.startsWith("~") ? resolve(homedir(), path.slice(1).replace(/^\//, "")) : path;
@@ -60,11 +65,41 @@ function createProvider(): MusicProvider | null {
   }
 }
 
+/** Ordered fallback providers used when the primary search finds nothing. */
+function createFallbacks(): MusicProvider[] {
+  const fallbacks: MusicProvider[] = [];
+  for (const rawName of (process.env.MUSIC_FALLBACK_PROVIDERS ?? "").split(/[\s,]+/)) {
+    const name = rawName.trim().toLowerCase();
+    if (!name) continue;
+    switch (name) {
+      case "monochrome":
+        fallbacks.push(
+          new MonochromeProvider(parseUrlList(process.env.MONOCHROME_API_URLS, DEFAULT_MONOCHROME_API_URLS))
+        );
+        break;
+      case "invidious":
+        fallbacks.push(new InvidiousProvider(parseUrlList(process.env.INVIDIOUS_API_URLS, DEFAULT_INVIDIOUS_API_URLS)));
+        break;
+      case "audius":
+        fallbacks.push(new AudiusProvider(parseUrlList(process.env.AUDIUS_API_URLS, DEFAULT_AUDIUS_API_URLS)));
+        break;
+      default:
+        console.error(`Unknown MUSIC_FALLBACK_PROVIDERS entry "${name}"`);
+    }
+  }
+  return fallbacks;
+}
+
 /** The configured music provider (created once, lazily), or null if none is configured. */
 export function getMusicProvider(): MusicProvider | null {
   if (provider === undefined) {
-    provider = createProvider();
-    if (provider) console.log(`🎶 Music provider: ${provider.name}`);
+    primary = createProvider();
+    const fallbacks = primary ? createFallbacks() : [];
+    provider = primary && fallbacks.length > 0 ? new CompositeProvider(primary, fallbacks) : primary;
+    if (provider) {
+      const label = fallbacks.length > 0 ? ` (+ fallbacks: ${fallbacks.map((f) => f.name).join(", ")})` : "";
+      console.log(`🎶 Music provider: ${provider.name}${label}`);
+    }
   }
   return provider;
 }
@@ -72,5 +107,6 @@ export function getMusicProvider(): MusicProvider | null {
 /** The library provider, when it is the active provider (used by the /library/* routes). */
 export function getLibraryProvider(): LibraryProvider | null {
   const active = getMusicProvider();
-  return active instanceof LibraryProvider ? active : null;
+  if (active instanceof LibraryProvider) return active;
+  return primary instanceof LibraryProvider ? primary : null;
 }

@@ -2,6 +2,7 @@ import { generateAudioFileName, uploadBytes } from "@/lib/r2";
 import type { MusicProvider } from "@/providers/types";
 import type { AudioSourceType, ProviderSearchResultType, ProviderTrackType } from "@beatsync/shared";
 import { RawSearchResponseSchema, StreamResponseSchema, TrackParamsSchema } from "@beatsync/shared";
+import { DeadHostTracker, asError } from "@/providers/failover";
 
 /**
  * Community hifi-api instances (https://github.com/binimum/hifi-api, Tidal catalog),
@@ -56,13 +57,7 @@ interface TrackMeta {
   version?: string;
 }
 
-export function parseUrlList(value: string | undefined, fallback: string[]): string[] {
-  const list = (value ?? "")
-    .split(/[\s,]+/)
-    .map((url) => url.trim().replace(/\/+$/, ""))
-    .filter(Boolean);
-  return list.length > 0 ? list : fallback;
-}
+export { parseUrlList } from "@/providers/failover";
 
 export function tidalArtworkUrl(cover: string | null | undefined): string | undefined {
   if (!cover) return undefined;
@@ -130,24 +125,6 @@ function mapQobuzTrack(track: {
   };
 }
 
-function asError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/** Unreachable hosts (bad DNS, refused TLS) stay skipped for a cooldown window. */
-function isDeadHostError(error: unknown): boolean {
-  const message = asError(error).toLowerCase();
-  return (
-    message.includes("enotfound") ||
-    message.includes("econnrefused") ||
-    message.includes("econnreset") ||
-    message.includes("eai_again") ||
-    message.includes("unexpected eof") ||
-    message.includes("abort") ||
-    message.includes("timeout")
-  );
-}
-
 function extensionFor(contentType: string): string {
   return EXTENSION_BY_CONTENT_TYPE[contentType.split(";")[0].trim()] ?? ".mp3";
 }
@@ -166,7 +143,7 @@ export class HifiProvider implements MusicProvider {
   readonly name = "hifi";
   private readonly quality: string;
   private readonly trackCache = new Map<string, TrackMeta>();
-  private readonly deadUntil = new Map<string, number>();
+  private readonly dead = new DeadHostTracker(DEAD_INSTANCE_COOLDOWN_MS);
 
   constructor(
     private readonly apiUrls: string[],
@@ -175,24 +152,10 @@ export class HifiProvider implements MusicProvider {
     this.quality = process.env.HIFI_QUALITY?.trim() ?? DEFAULT_QUALITY;
   }
 
-  private isDown(base: string): boolean {
-    const until = this.deadUntil.get(base);
-    if (until === undefined) return false;
-    if (Date.now() > until) {
-      this.deadUntil.delete(base);
-      return false;
-    }
-    return true;
-  }
-
-  private markDown(base: string, error: unknown): void {
-    if (isDeadHostError(error)) this.deadUntil.set(base, Date.now() + DEAD_INSTANCE_COOLDOWN_MS);
-  }
-
   async search(query: string, offset: number): Promise<ProviderSearchResultType> {
     const errors: string[] = [];
     for (const base of this.apiUrls) {
-      if (this.isDown(base)) {
+      if (this.dead.isDown(base)) {
         errors.push(`${base}: skipped (recently unreachable)`);
         continue;
       }
@@ -205,7 +168,7 @@ export class HifiProvider implements MusicProvider {
           if (result) return result;
           errors.push(`${base} (${shape}): unexpected response`);
         } catch (error) {
-          this.markDown(base, error);
+          this.dead.markDown(base, error);
           errors.push(`${base} (${shape}): ${asError(error)}`);
         }
       }
@@ -302,7 +265,7 @@ export class HifiProvider implements MusicProvider {
 
   private async fetchTrackInfo(trackId: string): Promise<TrackMeta | null> {
     for (const base of this.apiUrls) {
-      if (this.isDown(base)) continue;
+      if (this.dead.isDown(base)) continue;
       try {
         const url = new URL("/info/", base);
         url.searchParams.set("id", trackId);
@@ -312,7 +275,7 @@ export class HifiProvider implements MusicProvider {
         const meta = metaFromTidalTrack(json?.data ?? {});
         if (meta) return meta;
       } catch (error) {
-        this.markDown(base, error);
+        this.dead.markDown(base, error);
       }
     }
     return null;
@@ -321,20 +284,20 @@ export class HifiProvider implements MusicProvider {
   private async resolveStream(trackId: string): Promise<{ audioUrl: string; contentType: string }> {
     const errors: string[] = [];
     for (const base of this.streamingUrls) {
-      if (this.isDown(base)) {
+      if (this.dead.isDown(base)) {
         errors.push(`${base}: skipped (recently unreachable)`);
         continue;
       }
       try {
         return await this.resolveStreamHifiApi(base, trackId);
       } catch (error) {
-        this.markDown(base, error);
+        this.dead.markDown(base, error);
         errors.push(`${base} (hifi-api): ${asError(error)}`);
       }
       try {
         return await this.resolveStreamLegacy(base, trackId);
       } catch (error) {
-        this.markDown(base, error);
+        this.dead.markDown(base, error);
         errors.push(`${base} (legacy): ${asError(error)}`);
       }
     }
