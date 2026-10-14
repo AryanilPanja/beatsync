@@ -110,18 +110,19 @@ describe("Audio Loading Coordination", () => {
       expect(broadcastMessages).toHaveLength(0);
     });
 
-    it("should mark the initiator client as already loaded", () => {
+    it("should wait for the initiator to report loaded too", () => {
       addClientsToRoom(room, 4);
 
       room.initiateAudioSourceLoad(createPlayAction(), "client-1", server);
       broadcastMessages = [];
 
-      // Initiator is pre-loaded, so only the other 3 need to report
+      // The initiator may still be downloading (e.g. a phone that just added the track)
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
+      room.processClientLoadedAudioSource("client-4", server);
       expect(getScheduledActionBroadcasts()).toHaveLength(0);
 
-      room.processClientLoadedAudioSource("client-4", server);
+      room.processClientLoadedAudioSource("client-1", server);
 
       const scheduled = getScheduledActionBroadcasts();
       expect(scheduled).toHaveLength(1);
@@ -142,6 +143,7 @@ describe("Audio Loading Coordination", () => {
       );
 
       // Report all clients loaded for the second action
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       room.processClientLoadedAudioSource("client-4", server);
@@ -164,6 +166,7 @@ describe("Audio Loading Coordination", () => {
       room.initiateAudioSourceLoad(createPlayAction(), "client-1", server);
       broadcastMessages = [];
 
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       expect(getScheduledActionBroadcasts()).toHaveLength(0);
@@ -180,6 +183,7 @@ describe("Audio Loading Coordination", () => {
       room.initiateAudioSourceLoad(createPlayAction(), "client-1", server);
       broadcastMessages = [];
 
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       room.processClientLoadedAudioSource("client-4", server);
@@ -200,6 +204,7 @@ describe("Audio Loading Coordination", () => {
       room.initiateAudioSourceLoad(createPlayAction({ trackTimeSeconds: 42.5 }), "client-1", server);
       broadcastMessages = [];
 
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       room.processClientLoadedAudioSource("client-4", server);
@@ -232,6 +237,7 @@ describe("Audio Loading Coordination", () => {
       room.removeAudioSources([AUDIO_URL]);
 
       // All remaining clients report loaded - triggers executeScheduledPlay
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       room.processClientLoadedAudioSource("client-4", server);
@@ -279,6 +285,7 @@ describe("Audio Loading Coordination", () => {
       broadcastMessages = [];
 
       // All clients load immediately
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       room.processClientLoadedAudioSource("client-4", server);
@@ -300,6 +307,7 @@ describe("Audio Loading Coordination", () => {
       broadcastMessages = [];
 
       // client-2 and client-3 load
+      room.processClientLoadedAudioSource("client-1", server);
       room.processClientLoadedAudioSource("client-2", server);
       room.processClientLoadedAudioSource("client-3", server);
       expect(getScheduledActionBroadcasts()).toHaveLength(0);
